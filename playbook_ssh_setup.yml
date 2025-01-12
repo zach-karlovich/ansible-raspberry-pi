@@ -17,26 +17,26 @@
 
     - name: Check if SSH key already exists
       stat:
-        path: "/home/zk/.ssh/id_rsa"
+        path: "/home/{{ pi_username }}/.ssh/id_rsa.pub"
       register: ssh_key
 
     - name: Generate SSH key pair
       user:
-        name: zk
+        name: "{{ pi_username }}"
         generate_ssh_key: yes
-        ssh_key_file: "/home/zk/.ssh/id_rsa"
+        ssh_key_file: "/home/{{ pi_username }}/.ssh/id_rsa"
       when: not ssh_key.stat.exists
 
     - name: Create .ssh directory
       file:
-        path: "/home/zk/.ssh"
+        path: "/home/{{ pi_username }}/.ssh"
         state: directory
-        mode: '0700'
-        owner: zk
-        group: zk
+        mode: "0700"
+        owner: "{{ pi_username }}"
+        group: "{{ pi_username }}"
 
     - name: Copy public key to authorized_keys
       authorized_key:
-        user: zk
+        user: "{{ pi_username }}"
         state: present
-        key: "{{ lookup('file', '/home/zk/.ssh/id_rsa.pub') }}" 
+        key: "{{ lookup('file', '/home/{{ pi_username }}/.ssh/id_rsa.pub') }}"
