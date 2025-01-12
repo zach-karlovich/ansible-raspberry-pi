@@ -1,0 +1,42 @@
+---
+- name: Set up SSH on Raspberry Pi
+  hosts: raspberry_pi
+  become: yes
+  tasks:
+    - name: Install OpenSSH server
+      apt:
+        name: openssh-server
+        state: present
+        update_cache: yes
+
+    - name: Ensure SSH service is running
+      service:
+        name: ssh
+        state: started
+        enabled: yes
+
+    - name: Check if SSH key already exists
+      stat:
+        path: "/home/zk/.ssh/id_rsa"
+      register: ssh_key
+
+    - name: Generate SSH key pair
+      user:
+        name: zk
+        generate_ssh_key: yes
+        ssh_key_file: "/home/zk/.ssh/id_rsa"
+      when: not ssh_key.stat.exists
+
+    - name: Create .ssh directory
+      file:
+        path: "/home/zk/.ssh"
+        state: directory
+        mode: '0700'
+        owner: zk
+        group: zk
+
+    - name: Copy public key to authorized_keys
+      authorized_key:
+        user: zk
+        state: present
+        key: "{{ lookup('file', '/home/zk/.ssh/id_rsa.pub') }}" 

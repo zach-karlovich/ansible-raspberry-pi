@@ -1,0 +1,157 @@
+---
+- name: Set up Raspberry Pi
+  block:
+    - name: Update package manager and install required software
+      apt:
+        name:
+          - openssh-server
+          - vim
+          - git
+          - zsh
+          - python3
+          - ansible
+          - kitty
+        state: present
+        update_cache: yes
+
+    - name: Ensure SSH service is running
+      service:
+        name: ssh
+        state: started
+        enabled: yes
+
+    - name: Check if SSH key already exists
+      stat:
+        path: "/home/{{ pi_username }}/.ssh/id_rsa.pub"
+      register: ssh_key
+
+    - name: Create .ssh directory
+      file:
+        path: "/home/{{ pi_username }}/.ssh"
+        state: directory
+        mode: '0700'
+        owner: "{{ pi_username }}"
+        group: "{{ pi_username }}"
+
+    - name: Generate SSH key pair if it does not exist
+      command: >
+        ssh-keygen -t ed25519 -f /home/{{ pi_username }}/.ssh/{{ pi_username }}-pi-{{ ansible_host.split('.')[-1] }}
+        -N "" -C "{{ pi_username }}@pi-{{ ansible_host.split('.')[-1] }}"
+      args:
+        creates: "/home/{{ pi_username }}/.ssh/{{ pi_username }}-pi-{{ ansible_host.split('.')[-1] }}"
+      when: not ssh_key.stat.exists
+      become: true
+      become_user: "{{ pi_username }}"
+
+    - name: Set correct permissions on SSH key
+      file:
+        path: "{{ item }}"
+        mode: "{{ '0600' if item.endswith('ed25519') else '0644' }}"
+        owner: "{{ pi_username }}"
+        group: "{{ pi_username }}"
+      with_items:
+        - "/home/{{ pi_username }}/.ssh/{{ pi_username }}-pi-{{ ansible_host.split('.')[-1] }}"
+        - "/home/{{ pi_username }}/.ssh/{{ pi_username }}-pi-{{ ansible_host.split('.')[-1] }}.pub"
+      when: not ssh_key.stat.exists
+
+    - name: Read public key content
+      command: "cat /home/{{ pi_username }}/.ssh/{{ pi_username }}-pi-{{ ansible_host.split('.')[-1] }}.pub"
+      register: pubkey_content
+      changed_when: false
+      when: not ssh_key.stat.exists
+
+    - name: Copy public key to authorized_keys
+      authorized_key:
+        user: "{{ pi_username }}"
+        state: present
+        key: "{{ pubkey_content.stdout }}"
+      when: not ssh_key.stat.exists
+
+    - name: Check if .oh-my-zsh exists
+      stat:
+        path: "/home/{{ pi_username }}/.oh-my-zsh"
+      register: ohmyzsh_dir
+
+    - name: Install oh-my-zsh if it doesn't exist
+      git:
+        repo: https://github.com/ohmyzsh/ohmyzsh.git
+        dest: "/home/{{ pi_username }}/.oh-my-zsh"
+      become: true
+      become_user: "{{ pi_username }}"
+      when: not ohmyzsh_dir.stat.exists
+
+    - name: Create default .zshrc if it doesn't exist
+      copy:
+        dest: "/home/{{ pi_username }}/.zshrc"
+        content: |
+          export ZSH="$HOME/.oh-my-zsh"
+          ZSH_THEME="robbyrussell"
+          plugins=(git zsh-syntax-highlighting zsh-autosuggestions)
+          source $ZSH/oh-my-zsh.sh
+        owner: "{{ pi_username }}"
+        group: "{{ pi_username }}"
+        mode: '0644'
+      when: not ssh_key.stat.exists
+
+    - name: Install zsh-syntax-highlighting plugin
+      git:
+        repo: https://github.com/zsh-users/zsh-syntax-highlighting.git
+        dest: "/home/{{ pi_username }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+      become: true
+      become_user: "{{ pi_username }}"
+
+    - name: Install zsh-autosuggestions plugin
+      git:
+        repo: https://github.com/zsh-users/zsh-autosuggestions.git
+        dest: "/home/{{ pi_username }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+      become: true
+      become_user: "{{ pi_username }}"
+
+    - name: Set Zsh as the default shell for the user
+      command: chsh -s $(which zsh) {{ pi_username }}
+      when: not ssh_key.stat.exists
+      become: true
+
+    - name: Create kitty config directory
+      file:
+        path: "/home/{{ pi_username }}/.config/kitty"
+        state: directory
+        owner: "{{ pi_username }}"
+        group: "{{ pi_username }}"
+        mode: '0755'
+      become: true
+
+    - name: Configure kitty as default terminal
+      copy:
+        dest: "/home/{{ pi_username }}/.config/kitty/kitty.conf"
+        content: |
+          # Basic configuration
+          font_family      monospace
+          bold_font        auto
+          italic_font      auto
+          bold_italic_font auto
+          font_size        11.0
+          
+          # Terminal bell
+          enable_audio_bell no
+          
+          # Window settings
+          remember_window_size  yes
+          initial_window_width  800
+          initial_window_height 600
+        owner: "{{ pi_username }}"
+        group: "{{ pi_username }}"
+        mode: '0644'
+      become: true
+
+    - name: Set kitty as default terminal
+      copy:
+        dest: "/home/{{ pi_username }}/.config/mimeapps.list"
+        content: |
+          [Default Applications]
+          x-scheme-handler/terminal=kitty.desktop
+          x-terminal-emulator=kitty.desktop
+        owner: "{{ pi_username }}"
+        group: "{{ pi_username }}"
+        mode: '0644'
+      become: true

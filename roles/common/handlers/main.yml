@@ -1,0 +1,15 @@
+---
+- name: Restart SSH service
+  service:
+    name: ssh
+    state: restarted
+
+- name: Reload UFW
+  service: 
+    name: ufw
+    state: reloaded
+
+- name: Restart Nginx
+  service:
+    name: nginx 
+    state: restarted
