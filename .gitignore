@@ -2,20 +2,11 @@
 *.retry
 .ansible/
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-
 # Environment files
 .env
 .venv/
 env/
 venv/
-
-# OS files
-.DS_Store
-Thumbs.db 
 
 # Ignore real inventory file
 inventory.ini 
