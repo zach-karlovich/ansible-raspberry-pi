@@ -15,7 +15,6 @@
           - python3-pynvim
           - ripgrep
           - locales
-          - language-pack-en
         state: present
         update_cache: yes
 
@@ -230,12 +229,17 @@
           alias vi='nvim'
         marker: "# {mark} ANSIBLE MANAGED BLOCK - NEOVIM CONFIG"
 
-    - name: Ensure required locales are present
-      locale_gen:
-        name: "{{ item }}"
+    # Update locale configuration for Debian/Raspberry Pi OS
+    - name: Ensure en_US.UTF-8 locale is present in locale.gen
+      lineinfile:
+        path: /etc/locale.gen
+        regexp: '^#?\s*en_US.UTF-8 UTF-8'
+        line: 'en_US.UTF-8 UTF-8'
         state: present
-      with_items:
-        - "en_US.UTF-8"
+
+    - name: Generate locales
+      command: locale-gen
+      changed_when: false
 
     - name: Set locale defaults
       copy:
