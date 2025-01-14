@@ -13,11 +13,35 @@
           - kitty
           - neovim
           - python3-pynvim
-          - nodejs
-          - npm
           - ripgrep
         state: present
         update_cache: yes
+
+    # Separate Node.js installation
+    - name: Install Node.js using nodesource
+      block:
+        - name: Download Node.js setup script
+          get_url:
+            url: https://deb.nodesource.com/setup_18.x
+            dest: /tmp/nodejs_setup.sh
+            mode: '0755'
+
+        - name: Run Node.js setup script
+          command: /tmp/nodejs_setup.sh
+          args:
+            creates: /etc/apt/sources.list.d/nodesource.list
+
+        - name: Install Node.js and npm
+          apt:
+            name:
+              - nodejs
+            state: present
+            update_cache: yes
+
+        - name: Clean up setup script
+          file:
+            path: /tmp/nodejs_setup.sh
+            state: absent
 
     - name: Ensure SSH service is running
       service:
